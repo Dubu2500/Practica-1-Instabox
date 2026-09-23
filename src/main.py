@@ -42,7 +42,7 @@ def create_event():
     conn.close()
 
     return jsonify({"event_id": event_id}), 201
-    
+
 def make_polaroid(photo: Image.Image, message: str) -> Image.Image:
     photo = photo.resize((128, 128))
     frame = Image.new("RGB", (148, 178), "white")
@@ -86,3 +86,30 @@ def upload_photo():
     conn.close()
 
     return jsonify({"photo_id": photo_id, "picture_key": picture_key, "polaroid_key": polaroid_key}), 201
+
+@app.route("/events/<event_id>", methods=["GET"])
+def get_event(event_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT client_name, event_type, event_date FROM events WHERE event_id = %s",
+        (event_id,),
+    )
+    event = cur.fetchone()
+    if event is None:
+        cur.close()
+        conn.close()
+        return jsonify({"error": "event not found"}), 404
+
+    cur.execute("SELECT COUNT(*) FROM photos WHERE event_id = %s", (event_id,))
+    photo_count = cur.fetchone()[0]
+    cur.close()
+    conn.close()
+
+    return jsonify({
+        "event_id": event_id,
+        "client_name": event[0],
+        "event_type": event[1],
+        "event_date": str(event[2]),
+        "photo_count": photo_count,
+    })
