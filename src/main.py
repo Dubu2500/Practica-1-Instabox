@@ -26,3 +26,19 @@ def get_db_connection():
         user=creds["username"],
         password=creds["password"],
     )
+@app.route("/events", methods=["POST"])
+def create_event():
+    data = request.get_json()
+    event_id = str(uuid.uuid4())
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO events (event_id, client_name, event_type, event_date) VALUES (%s, %s, %s, %s)",
+        (event_id, data["client_name"], data["event_type"], data["event_date"]),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({"event_id": event_id}), 201
