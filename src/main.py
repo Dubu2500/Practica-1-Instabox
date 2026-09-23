@@ -113,3 +113,30 @@ def get_event(event_id):
         "event_date": str(event[2]),
         "photo_count": photo_count,
     })
+    
+@app.route("/finish", methods=["POST"])
+def finish_event():
+    data = request.get_json()
+    event_id = data["event_id"]
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT polaroid_key FROM photos WHERE event_id = %s", (event_id,))
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w") as zf:
+        for (polaroid_key,) in rows:
+            obj = s3.get_object(Bucket=BUCKET, Key=polaroid_key)
+            filename = polaroid_key.split("/")[-1]
+            zf.writestr(filename, obj["Body"].read())
+    zip_buffer.seek(0)
+
+    return send_file(
+        zip_buffer,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=f"{event_id}.zip",
+    )
